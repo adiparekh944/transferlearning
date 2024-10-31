@@ -1,0 +1,88 @@
+import json
+import os
+from PIL import Image
+
+# Set paths for BDD100K dataset and YOLO formatted labels
+bdd100k_label_path = 'path/to/bdd100k/labels'  # Folder containing BDD100K label JSON files
+output_label_path = 'path/to/output/labels'  # Folder to save YOLO formatted labels
+image_path = 'path/to/bdd100k/images'  # Folder containing BDD100K images
+
+# Mapping of BDD100K classes to YOLO class IDs
+class_map = {
+    "bike": 0,
+    "bus": 1,
+    "car": 2,
+    "motor": 3,
+    "person": 4,
+    "rider": 5,
+    "traffic light": 6,
+    "traffic sign": 7,
+    "train": 8,
+    "truck": 9
+}
+
+# Function to convert bbox to YOLO format
+def convert_bbox_to_yolo(image_width, image_height, bbox):
+    x_min, y_min, x_max, y_max = bbox
+    x_center = ((x_min + x_max) / 2) / image_width
+    y_center = ((y_min + y_max) / 2) / image_height
+    width = (x_max - x_min) / image_width
+    height = (y_max - y_min) / image_height
+    return x_center, y_center, width, height
+
+# Loop through each label file and convert
+for label_file in os.listdir(bdd100k_label_path):
+    label_file_path = os.path.join(bdd100k_label_path, label_file)
+
+    # Check if the file is empty
+    if os.path.getsize(label_file_path) == 0:
+        print(f"File {label_file} is empty, skipping.")
+        continue
+
+    with open(label_file_path, 'r', encoding='latin-1') as f:  # Specify encoding
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from file {label_file}: {e}")
+            continue
+
+    # If data is a list, process each item
+    if isinstance(data, list):
+        for item in data:
+            image_name = item.get('name')
+            labels = item.get('labels', [])
+            if image_name:
+                # Look for any .jpg files in the image directory
+                image_files = [f for f in os.listdir(image_path) if f.endswith('.jpg')]
+                
+                # Check if any matching image file was found
+                if image_files:
+                    image_file = os.path.join(image_path, image_files[0])  # Get the first .jpg file found
+                    with Image.open(image_file) as img:
+                        img_width, img_height = img.size
+                else:
+                    print(f"No .jpg images found in {image_path}, skipping.")
+                    continue
+
+                yolo_labels = []
+
+                for label in labels:
+                    category = label['category']
+                    if category in class_map:
+                        class_id = class_map[category]
+                        bbox = label['box2d']
+                        x_center, y_center, width, height = convert_bbox_to_yolo(
+                            img_width, img_height, 
+                            [bbox['x1'], bbox['y1'], bbox['x2'], bbox['y2']]
+                        )
+                        yolo_labels.append(f"{class_id} {x_center} {y_center} {width} {height}")
+
+                # Write YOLO label file
+                if yolo_labels:
+                    yolo_label_file = os.path.join(output_label_path, label_file.replace('.json', '.txt'))
+                    with open(yolo_label_file, 'w') as yolo_f:
+                        yolo_f.write("\n".join(yolo_labels))
+                else:
+                    print(f"No valid labels for {image_name}, skipping.")
+    else:
+        print(f"Unexpected data format in file {label_file}: {type(data)}")

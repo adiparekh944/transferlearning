@@ -3,9 +3,12 @@ import os
 from PIL import Image
 
 # Set paths for BDD100K dataset and YOLO formatted labels
-bdd100k_label_path = 'path/to/bdd100k/labels'  # Folder containing BDD100K label JSON files
-output_label_path = 'path/to/output/labels'  # Folder to save YOLO formatted labels
-image_path = 'path/to/bdd100k/images'  # Folder containing BDD100K images
+bdd100k_label_path = '/Users/adiparekh/Downloads/bdd100k 3/labels/box_track_20/val/'  # Folder containing BDD100K label JSON files
+output_folder = '/Users/adiparekh/Downloads/yolo_labels/'  # Folder to save YOLO formatted labels
+image_path = '/Users/adiparekh/Downloads/bdd100k 4/images/10k/test/'  # Folder containing BDD100K images
+
+# Ensure the output folder exists
+os.makedirs(output_folder, exist_ok=True)
 
 # Mapping of BDD100K classes to YOLO class IDs
 class_map = {
@@ -75,11 +78,14 @@ for label_file in os.listdir(bdd100k_label_path):
                             img_width, img_height, 
                             [bbox['x1'], bbox['y1'], bbox['x2'], bbox['y2']]
                         )
-                        yolo_labels.append(f"{class_id} {x_center} {y_center} {width} {height}")
+                        yolo_labels.append(
+                            f"class_id: {class_id}, x_center: {x_center:.6f}, y_center: {y_center:.6f}, "
+                            f"width: {width:.6f}, height: {height:.6f}"
+                        )
 
                 # Write YOLO label file
                 if yolo_labels:
-                    yolo_label_file = os.path.join(output_label_path, label_file.replace('.json', '.txt'))
+                    yolo_label_file = os.path.join(output_folder, label_file.replace('.json', '.txt'))
                     with open(yolo_label_file, 'w') as yolo_f:
                         yolo_f.write("\n".join(yolo_labels))
                 else:
